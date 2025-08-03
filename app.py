@@ -145,7 +145,7 @@ def get_image_description(image_path):
         result = client.predict(
             image_path,
             "Descriptive",
-            "long", 
+            "very long", 
             [],
             "",
             "",
