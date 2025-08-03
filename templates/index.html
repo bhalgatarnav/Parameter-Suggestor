@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Material Property Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-microscope"></i> Material Property Analyzer</h1>
+            <p>Upload an image to analyze material properties using advanced AI models</p>
+        </header>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-content">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <h3>Drop your image here or click to browse</h3>
+                    <p>Supported formats: PNG, JPG, JPEG, GIF, BMP, WEBP</p>
+                    <p>Maximum file size: 16MB</p>
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    <button class="browse-btn" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </button>
+                </div>
+            </div>
+
+            <div class="upload-progress" id="uploadProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">Uploading...</p>
+            </div>
+        </div>
+
+        <div class="image-preview" id="imagePreview" style="display: none;">
+            <h3><i class="fas fa-image"></i> Image Preview</h3>
+            <div class="preview-container">
+                <img id="previewImage" alt="Uploaded image preview">
+                <div class="image-info">
+                    <p><strong>Filename:</strong> <span id="imageFilename"></span></p>
+                    <p><strong>Size:</strong> <span id="imageSize"></span></p>
+                    <p><strong>Dimensions:</strong> <span id="imageDimensions"></span></p>
+                </div>
+            </div>
+            <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()">
+                <i class="fas fa-cogs"></i> Analyze Materials
+            </button>
+        </div>
+
+        <div class="analysis-section" id="analysisSection" style="display: none;">
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner"></div>
+                <h3>Analyzing your image...</h3>
+                <p>This may take a few moments</p>
+                <div class="analysis-steps">
+                    <div class="step" id="step1">
+                        <i class="fas fa-eye"></i> Generating image description
+                    </div>
+                    <div class="step" id="step2">
+                        <i class="fas fa-brain"></i> Analyzing materials with AI
+                    </div>
+                    <div class="step" id="step3">
+                        <i class="fas fa-database"></i> Gathering material properties
+                    </div>
+                </div>
+            </div>
+
+            <div class="results" id="results" style="display: none;">
+                <h2><i class="fas fa-chart-line"></i> Analysis Results</h2>
+                
+                <div class="description-section">
+                    <h3><i class="fas fa-file-alt"></i> Image Description</h3>
+                    <div class="description-content" id="descriptionContent"></div>
+                </div>
+
+                <div class="materials-section">
+                    <h3><i class="fas fa-cubes"></i> Identified Materials</h3>
+                    <div class="materials-grid" id="materialsGrid"></div>
+                </div>
+
+                <div class="metrics-section">
+                    <h3><i class="fas fa-tachometer-alt"></i> Quality Metrics</h3>
+                    <div class="metrics-grid" id="metricsGrid"></div>
+                </div>
+
+                <div class="actions">
+                    <button class="secondary-btn" onclick="location.reload()">
+                        <i class="fas fa-redo"></i> Analyze Another Image
+                    </button>
+                    <button class="primary-btn" onclick="exportResults()">
+                        <i class="fas fa-download"></i> Export Results
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2024 Material Property Analyzer. Powered by AI and advanced computer vision.</p>
+        <div class="tech-stack">
+            <span class="tech-badge">Flask</span>
+            <span class="tech-badge">OpenAI GPT-4</span>
+            <span class="tech-badge">HuggingFace</span>
+            <span class="tech-badge">MatSynth</span>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 
