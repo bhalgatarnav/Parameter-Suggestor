@@ -11,13 +11,18 @@ from io import BytesIO
 from PIL import Image
 import tempfile
 import warnings
+from dotenv import load_dotenv
+
 warnings.filterwarnings("ignore")
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Get OpenAI API key from environment variable
-# Set this in your environment: export OPENAI_API_KEY="your-api-key-here"
+# Set this in your .env file: OPENAI_API_KEY=your-api-key-here
 openai_api_key = os.getenv('OPENAI_API_KEY')
 if not openai_api_key:
-    raise ValueError("OPENAI_API_KEY environment variable is not set")
+    raise ValueError("OPENAI_API_KEY environment variable is not set. Please create a .env file and add your OpenAI API key.")
 
 # Try to import diffusers for StableMaterials (optional)
 try:
@@ -63,27 +68,40 @@ def get_image_description_from_vision_llm(image_path):
             import base64
             base64_image = base64.b64encode(image_file.read()).decode('utf-8')
         
-        response = client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
+        # Try vision models with fallback
+        vision_models = ["gpt-4o", "gpt-4-turbo"]
+        response = None
+        
+        for model in vision_models:
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
                         {
-                            "type": "text", 
-                            "text": "Describe this image in detail, focusing on materials, textures, surfaces, lighting conditions, and any physical properties that can be observed. Include information about roughness, reflectance, colors, and material types."
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text", 
+                                    "text": "Describe this image in detail, focusing on materials, textures, surfaces, lighting conditions, and any physical properties that can be observed. Include information about roughness, reflectance, colors, and material types."
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{base64_image}"
+                                    }
+                                }
+                            ]
                         }
-                    ]
-                }
-            ],
-            max_tokens=500
-        )
+                    ],
+                    max_tokens=500
+                )
+                print(f"✅ Vision analysis completed using {model}")
+                break
+            except Exception as model_error:
+                print(f"❌ Vision model {model} failed: {str(model_error)}")
+                if model == vision_models[-1]:
+                    raise model_error
+                continue
         
         return response.choices[0].message.content
         
@@ -145,7 +163,7 @@ def get_image_description(image_path):
         result = client.predict(
             image_path,
             "Descriptive",
-            "long", 
+            "very long", 
             [],
             "",
             "",
@@ -158,6 +176,10 @@ def get_image_description(image_path):
             
     except Exception as e:
         print(f"❌ HuggingFace method failed: {str(e)}")
+        if "upstream Gradio app" in str(e):
+            print("   Note: This is a temporary issue with the HuggingFace service")
+        elif "timeout" in str(e).lower():
+            print("   Note: HuggingFace service is experiencing delays")
     
     # Method 2: Try OpenAI Vision (if available)
     print("Trying OpenAI Vision API...")
@@ -243,27 +265,69 @@ def analyze_materials_with_gpt(description):
         }}
         """
         
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert material scientist and computer graphics specialist. Analyze images and provide detailed material property assessments. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=2000,
-            temperature=0.3,
-            timeout=60.0
-        )
-        print("✅ GPT-4 analysis completed successfully")
+        # Try GPT-4o first, fallback to GPT-4-turbo if not available
+        models_to_try = ["gpt-4o", "gpt-4-turbo", "gpt-4"]
+        response = None
         
-        # Try to parse JSON response
+        for model in models_to_try:
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are an expert material scientist and computer graphics specialist. Analyze images and provide detailed material property assessments. Always respond with valid JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=2000,
+                    temperature=0.3
+                )
+                print(f"✅ GPT analysis completed successfully using {model}")
+                break
+            except Exception as model_error:
+                print(f"❌ {model} failed: {str(model_error)}")
+                if model == models_to_try[-1]:  # If this was the last model to try
+                    raise model_error
+                continue
+        
+        # Try to parse JSON response with robust error handling
         try:
-            result = json.loads(response.choices[0].message.content)
+            raw_content = response.choices[0].message.content.strip()
+            
+            # Remove any markdown code block formatting if present
+            if raw_content.startswith('```json'):
+                raw_content = raw_content[7:]  # Remove ```json
+            if raw_content.startswith('```'):
+                raw_content = raw_content[3:]   # Remove ```
+            if raw_content.endswith('```'):
+                raw_content = raw_content[:-3]  # Remove trailing ```
+            
+            # Clean up any extra whitespace
+            raw_content = raw_content.strip()
+            
+            # Try to parse the cleaned JSON
+            result = json.loads(raw_content)
             return result
-        except json.JSONDecodeError:
-            # If JSON parsing fails, return the raw response
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {str(e)}")
+            print(f"Raw content (first 200 chars): {raw_content[:200]}...")
+            
+            # Try to extract JSON using regex as fallback
+            import re
+            json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+            if json_match:
+                try:
+                    result = json.loads(json_match.group())
+                    print("✅ Successfully parsed JSON using regex fallback")
+                    return result
+                except json.JSONDecodeError:
+                    pass
+            
+            # If all parsing fails, return the raw response with better structure
             return {
                 "error": "Could not parse JSON response",
-                "raw_response": response.choices[0].message.content
+                "parsing_error": str(e),
+                "raw_response": raw_content,
+                "success": False
             }
             
     except Exception as e:
